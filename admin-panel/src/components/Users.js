@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Modal } from 'bootstrap';
 
-
 const Users = () => {
   const [users, setUsers] = useState([]);
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'user' });
@@ -10,6 +9,11 @@ const Users = () => {
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
+
+  // Utility to remove lingering backdrops
+  const removeBackdrops = () => {
+    document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.remove());
+  };
 
   // Fetch all users from the API
   const fetchUsers = async () => {
@@ -24,13 +28,12 @@ const Users = () => {
       setLoading(false);
     }
   };
-  
 
   // Create a new user
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:6288/api/users/create', { // Updated URL
+      const response = await fetch('http://localhost:6288/api/users/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -42,13 +45,9 @@ const Users = () => {
         setNewUser({ username: '', password: '', role: 'user' });
         setToastMessage('User created successfully!');
         setShowToast(true);
-
-      // Close the modal
-      const modalElement = document.getElementById('createUserModal');
-      const modal = Modal.getInstance(modalElement);
-      modal.hide();  // Hide the modal
+        closeModal('createUserModal');
       } else {
-        const errorText = await response.text(); // Get the specific error message
+        const errorText = await response.text();
         setToastMessage(`Failed to create user: ${errorText}`);
         setShowToast(true);
       }
@@ -58,7 +57,7 @@ const Users = () => {
       setShowToast(true);
     }
   };
-  
+
   // Update an existing user
   const handleUpdateUser = async (e) => {
     e.preventDefault();
@@ -75,6 +74,7 @@ const Users = () => {
         setUpdateUser({ id: '', username: '', password: '', role: 'user' });
         setToastMessage('User updated successfully!');
         setShowToast(true);
+        closeModal('updateUserModal');
       } else {
         setToastMessage('Failed to update user');
         setShowToast(true);
@@ -83,7 +83,6 @@ const Users = () => {
       console.error('Error updating user:', error);
     }
   };
-
   // Delete a user
   const handleDeleteUser = async (id) => {
     try {
@@ -102,7 +101,25 @@ const Users = () => {
       console.error('Error deleting user:', error);
     }
   };
-  
+
+  // Close modal and dispose its instance
+  const closeModal = (modalId) => {
+    const modalElement = document.getElementById(modalId);
+    if (!modalElement) {
+      console.error(`Modal with id ${modalId} does not exist.`);
+      return;
+    }
+
+    let modalInstance = Modal.getInstance(modalElement);
+    if (!modalInstance) {
+      modalInstance = new Modal(modalElement);
+    }
+
+    modalInstance.hide();
+    modalInstance.dispose(); // Dispose to clean up modal
+    removeBackdrops(); // Manually remove any lingering backdrops
+  };
+
 
   // Fetch users when the component mounts
   useEffect(() => {
@@ -183,7 +200,7 @@ const Users = () => {
                     type="text"
                     className="form-control"
                     placeholder="Username"
-                    value={newUser.username}
+                    value={newUser.username || ''}
                     onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                     required
                   />
@@ -194,7 +211,7 @@ const Users = () => {
                     type="password"
                     className="form-control"
                     placeholder="Password"
-                    value={newUser.password}
+                    value={newUser.password || ''}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                     required
                   />
@@ -203,7 +220,7 @@ const Users = () => {
                   <label className="form-label">Role</label>
                   <select
                     className="form-select"
-                    value={newUser.role}
+                    value={newUser.role || 'user'}
                     onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                     required
                   >
@@ -221,6 +238,7 @@ const Users = () => {
         </div>
       </div>
 
+
       {/* Modal for updating an existing user */}
       <div className="modal fade" id="updateUserModal" tabIndex="-1" aria-labelledby="updateUserModalLabel" aria-hidden="true">
         <div className="modal-dialog">
@@ -237,7 +255,7 @@ const Users = () => {
                     type="text"
                     className="form-control"
                     placeholder="User ID"
-                    value={updateUser.id}
+                    value={updateUser.id || ''}
                     onChange={(e) => setUpdateUser({ ...updateUser, id: e.target.value })}
                     required
                   />
@@ -248,7 +266,7 @@ const Users = () => {
                     type="text"
                     className="form-control"
                     placeholder="Username"
-                    value={updateUser.username}
+                    value={updateUser.username || ''}
                     onChange={(e) => setUpdateUser({ ...updateUser, username: e.target.value })}
                     required
                   />
@@ -259,7 +277,7 @@ const Users = () => {
                     type="password"
                     className="form-control"
                     placeholder="Password"
-                    value={updateUser.password}
+                    value={updateUser.password || ''}
                     onChange={(e) => setUpdateUser({ ...updateUser, password: e.target.value })}
                     required
                   />
@@ -268,7 +286,7 @@ const Users = () => {
                   <label className="form-label">Role</label>
                   <select
                     className="form-select"
-                    value={updateUser.role}
+                    value={updateUser.role || 'user'}
                     onChange={(e) => setUpdateUser({ ...updateUser, role: e.target.value })}
                     required
                   >
