@@ -90,12 +90,15 @@ const Users = () => {
       return;
     }
     try {
-      await axios.put(`${API_URL}/users/${updateUser.id}`, updateUser);
+      console.log("Sending data to backend:", updateUser); // Log request data
+      const response = await axios.put(`${API_URL}/users/${updateUser.id}`, updateUser);
+      console.log("Response from backend:", response.data); // Log backend response
       setSuccess('User updated successfully!');
       fetchUsers();
       handleCloseUpdateModal();
     } catch (err) {
       setError('Error updating user.');
+      console.error("Axios error occurred:", error.response ? error.response.data : error.message);
       console.error(err);
     }
   };

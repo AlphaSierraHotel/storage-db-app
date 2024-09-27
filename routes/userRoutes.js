@@ -75,22 +75,21 @@ router.put(
   '/:id',
   [
     check('username', 'Username is required').notEmpty(),
-    check('password', 'Password must be at least 6 characters long').isLength({ min: 6 }),
     check('role', 'Role is required').notEmpty()
   ],
   (req, res) => {
+    console.log("Received data from frontend:", req.body); // Log incoming data
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { id } = req.params;
-    const { username, password, role } = req.body;
-    const hashedPassword = bcrypt.hashSync(password, 10);
-
+    const { username, role } = req.body;
+    
     db.run(
-      `UPDATE users SET username = ?, password = ?, role = ? WHERE id = ?`,
-      [username, hashedPassword, role, id],
+      `UPDATE users SET username = ?, role = ? WHERE id = ?`,
+      [username, role, id],
       function (err) {
         if (err) return res.status(500).send('Failed to update user');
         if (this.changes === 0) return res.status(404).send('User not found');
