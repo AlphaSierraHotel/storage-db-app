@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Alert, Table } from 'react-bootstrap';
 import axios from 'axios';
-import debounce from 'lodash.debounce';
+import './Users.css';
+
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -20,9 +21,19 @@ const Users = () => {
 
   useEffect(() => {
     fetchUsers();
-  // eslint-disable-next-line
+    // eslint-disable-next-line
   }, []);
 
+  useEffect(() => {
+    if (success || error) {
+      const timer = setTimeout(() => {
+        setSuccess('');
+        setError('');
+      }, 6000); // Toast fades after 6 seconds
+      return () => clearTimeout(timer); // Clean up timeout on unmount
+    }
+  }, [success, error]);
+  
   const fetchUsers = async () => {
     try {
       const response = await axios.get(`${API_URL}/users`);
@@ -48,15 +59,15 @@ const Users = () => {
   };
   const handleClosePasswordModal = () => setShowPasswordModal(false);
 
-  const handleInputChange = debounce((e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewUser((prev) => ({ ...prev, [name]: value }));
-  }, 300);
+  };
 
-  const handleUpdateChange = debounce((e) => {
+  const handleUpdateChange = (e) => {
     const { name, value } = e.target;
     setUpdateUser((prev) => ({ ...prev, [name]: value }));
-  }, 300);
+  };
 
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
@@ -120,8 +131,8 @@ const Users = () => {
     <div>
       <h1>User Management</h1>
 
-      {error && <Alert variant="danger">{error}</Alert>}
-      {success && <Alert variant="success">{success}</Alert>}
+      {error && <Alert className="toast-notification" variant="danger">{error}</Alert>}
+      {success && <Alert className="toast-notification" variant="success">{success}</Alert>}
 
       <Button variant="primary" onClick={handleShowModal}>Add User</Button>
 
