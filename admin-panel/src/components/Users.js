@@ -1,308 +1,188 @@
 import React, { useState, useEffect } from 'react';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import { Modal } from 'bootstrap';
+import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import axios from 'axios';
+import debounce from 'lodash.debounce';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
-  const [newUser, setNewUser] = useState({ username: '', password: '', role: 'user' });
-  const [updateUser, setUpdateUser] = useState({ id: '', username: '', password: '', role: 'user' });
-  const [loading, setLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [showToast, setShowToast] = useState(false);
+  const [newUser, setNewUser] = useState({ username: '', password: '' });
+  const [updateUser, setUpdateUser] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [validated, setValidated] = useState(false);
 
-  // Utility to remove lingering backdrops
-  const removeBackdrops = () => {
-    document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.remove());
-  };
+  // Load environment variable
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:6288';
 
-  // Fetch all users from the API
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('http://localhost:6288/api/users');
-      const data = await response.json();
-      setUsers(data);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Create a new user
-  const handleCreateUser = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('http://localhost:6288/api/users/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newUser),
-      });
-      if (response.ok) {
-        fetchUsers(); // Refresh the user list
-        setNewUser({ username: '', password: '', role: 'user' });
-        setToastMessage('User created successfully!');
-        setShowToast(true);
-        closeModal('createUserModal');
-      } else {
-        const errorText = await response.text();
-        setToastMessage(`Failed to create user: ${errorText}`);
-        setShowToast(true);
-      }
-    } catch (error) {
-      console.error('Error creating user:', error);
-      setToastMessage('Failed to create user');
-      setShowToast(true);
-    }
-  };
-
-  // Update an existing user
-  const handleUpdateUser = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`http://localhost:6288/api/users/${updateUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateUser),
-      });
-      if (response.ok) {
-        fetchUsers();
-        setUpdateUser({ id: '', username: '', password: '', role: 'user' });
-        setToastMessage('User updated successfully!');
-        setShowToast(true);
-        closeModal('updateUserModal');
-      } else {
-        setToastMessage('Failed to update user');
-        setShowToast(true);
-      }
-    } catch (error) {
-      console.error('Error updating user:', error);
-    }
-  };
-  // Delete a user
-  const handleDeleteUser = async (id) => {
-    try {
-      const response = await fetch(`http://localhost:6288/api/users/${id}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        fetchUsers();
-        setToastMessage('User deleted successfully!');
-        setShowToast(true);
-      } else {
-        setToastMessage('Failed to delete user');
-        setShowToast(true);
-      }
-    } catch (error) {
-      console.error('Error deleting user:', error);
-    }
-  };
-
-  // Close modal and dispose its instance
-  const closeModal = (modalId) => {
-    const modalElement = document.getElementById(modalId);
-    if (!modalElement) {
-      console.error(`Modal with id ${modalId} does not exist.`);
-      return;
-    }
-
-    let modalInstance = Modal.getInstance(modalElement);
-    if (!modalInstance) {
-      modalInstance = new Modal(modalElement);
-    }
-
-    modalInstance.hide();
-    modalInstance.dispose(); // Dispose to clean up modal
-    removeBackdrops(); // Manually remove any lingering backdrops
-  };
-
-
-  // Fetch users when the component mounts
   useEffect(() => {
     fetchUsers();
   }, []);
 
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/users`);
+      setUsers(response.data);
+    } catch (err) {
+      setError('Error fetching users.');
+      console.error(err);
+    }
+  };
+
+  const handleShowModal = () => setShowModal(true);
+  const handleCloseModal = () => setShowModal(false);
+  const handleShowUpdateModal = (user) => {
+    setUpdateUser(user);
+    setShowUpdateModal(true);
+  };
+  const handleCloseUpdateModal = () => setShowUpdateModal(false);
+
+  const handleInputChange = debounce((e) => {
+    const { name, value } = e.target;
+    setNewUser((prev) => ({ ...prev, [name]: value }));
+  }, 300);
+
+  const handleUpdateChange = debounce((e) => {
+    const { name, value } = e.target;
+    setUpdateUser((prev) => ({ ...prev, [name]: value }));
+  }, 300);
+
+  const handleFormSubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (form.checkValidity() === false) {
+      event.stopPropagation();
+      setValidated(true);
+      return;
+    }
+    try {
+      await axios.post(`${API_URL}/users`, newUser);
+      setSuccess('User created successfully!');
+      fetchUsers();
+      handleCloseModal();
+    } catch (err) {
+      setError('Error creating user.');
+      console.error(err);
+    }
+  };
+
+  const handleUpdateSubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (form.checkValidity() === false) {
+      event.stopPropagation();
+      setValidated(true);
+      return;
+    }
+    try {
+      await axios.put(`${API_URL}/users/${updateUser.id}`, updateUser);
+      setSuccess('User updated successfully!');
+      fetchUsers();
+      handleCloseUpdateModal();
+    } catch (err) {
+      setError('Error updating user.');
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="container">
-      <h1 className="my-4">Manage Users</h1>
-      <p>Here you can create, read, update, and delete users.</p>
+    <div>
+      <h1>User Management</h1>
 
-      {/* Button to trigger modal for creating a new user */}
-      <button className="btn btn-primary mb-4" data-bs-toggle="modal" data-bs-target="#createUserModal">
-        Create New User
-      </button>
+      {error && <Alert variant="danger">{error}</Alert>}
+      {success && <Alert variant="success">{success}</Alert>}
 
-      {/* Spinner for loading */}
-      {loading && <div className="spinner-border text-primary" role="status">
-        <span className="visually-hidden">Loading...</span>
-      </div>}
+      <Button onClick={handleShowModal}>Add User</Button>
 
-      {/* User list */}
-      <h2>User List</h2>
-      {users.length > 0 ? (
-        <ul className="list-group">
-          {users.map((user) => (
-            <li key={user.id} className="list-group-item d-flex justify-content-between align-items-center">
-              <span>{user.username} ({user.role})</span>
-              <div>
-                <button
-                  className="btn btn-warning me-2"
-                  onClick={() => setUpdateUser(user)}
-                  data-bs-toggle="modal"
-                  data-bs-target="#updateUserModal"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteUser(user.id)}
-                  className="btn btn-danger"
-                >
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No users found.</p>
+      <Modal show={showModal} onHide={handleCloseModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>Add User</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form noValidate validated={validated} onSubmit={handleFormSubmit}>
+            <Form.Group>
+              <Form.Label>Username</Form.Label>
+              <Form.Control
+                type="text"
+                name="username"
+                onChange={handleInputChange}
+                required
+              />
+              <Form.Control.Feedback type="invalid">
+                Please provide a valid username.
+              </Form.Control.Feedback>
+            </Form.Group>
+
+            <Form.Group>
+              <Form.Label>Password</Form.Label>
+              <Form.Control
+                type="password"
+                name="password"
+                onChange={handleInputChange}
+                required
+              />
+              <Form.Control.Feedback type="invalid">
+                Please provide a password.
+              </Form.Control.Feedback>
+            </Form.Group>
+
+            <Button type="submit">Submit</Button>
+          </Form>
+        </Modal.Body>
+      </Modal>
+
+      {updateUser && (
+        <Modal show={showUpdateModal} onHide={handleCloseUpdateModal}>
+          <Modal.Header closeButton>
+            <Modal.Title>Update User</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <Form noValidate validated={validated} onSubmit={handleUpdateSubmit}>
+              <Form.Group>
+                <Form.Label>Username</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="username"
+                  value={updateUser.username}
+                  onChange={handleUpdateChange}
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  Please provide a valid username.
+                </Form.Control.Feedback>
+              </Form.Group>
+
+              <Form.Group>
+                <Form.Label>Password</Form.Label>
+                <Form.Control
+                  type="password"
+                  name="password"
+                  value={updateUser.password}
+                  onChange={handleUpdateChange}
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  Please provide a password.
+                </Form.Control.Feedback>
+              </Form.Group>
+
+              <Button type="submit">Update</Button>
+            </Form>
+          </Modal.Body>
+        </Modal>
       )}
 
-      {/* Toast for notifications */}
-      {showToast && (
-        <div className="toast show position-fixed top-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true">
-          <div className="toast-header">
-            <strong className="me-auto">Notification</strong>
-            <button type="button" className="btn-close" onClick={() => setShowToast(false)}></button>
-          </div>
-          <div className="toast-body">
-            {toastMessage}
-          </div>
-        </div>
-      )}
-
-      {/* Modal for creating a new user */}
-      <div className="modal fade" id="createUserModal" tabIndex="-1" aria-labelledby="createUserModalLabel" aria-hidden="true">
-        <div className="modal-dialog">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title" id="createUserModalLabel">Create New User</h5>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form onSubmit={handleCreateUser}>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label">Username</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Username"
-                    value={newUser.username || ''}
-                    onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Password</label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    placeholder="Password"
-                    value={newUser.password || ''}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Role</label>
-                  <select
-                    className="form-select"
-                    value={newUser.role || 'user'}
-                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                    required
-                  >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="submit" className="btn btn-primary">Create User</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-
-      {/* Modal for updating an existing user */}
-      <div className="modal fade" id="updateUserModal" tabIndex="-1" aria-labelledby="updateUserModalLabel" aria-hidden="true">
-        <div className="modal-dialog">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title" id="updateUserModalLabel">Update User</h5>
-              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form onSubmit={handleUpdateUser}>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label className="form-label">User ID</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="User ID"
-                    value={updateUser.id || ''}
-                    onChange={(e) => setUpdateUser({ ...updateUser, id: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Username</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Username"
-                    value={updateUser.username || ''}
-                    onChange={(e) => setUpdateUser({ ...updateUser, username: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Password</label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    placeholder="Password"
-                    value={updateUser.password || ''}
-                    onChange={(e) => setUpdateUser({ ...updateUser, password: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label">Role</label>
-                  <select
-                    className="form-select"
-                    value={updateUser.role || 'user'}
-                    onChange={(e) => setUpdateUser({ ...updateUser, role: e.target.value })}
-                    required
-                  >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="submit" className="btn btn-warning">Update User</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
+      <ul>
+        {users.map((user) => (
+          <li key={user.id}>
+            {user.username}{' '}
+            <Button variant="info" onClick={() => handleShowUpdateModal(user)}>
+              Edit
+            </Button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
