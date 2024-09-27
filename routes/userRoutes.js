@@ -1,71 +1,62 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const db = require('../db');
-const { generateAccessToken } = require('../auth');
-
 const router = express.Router();
 
-// Admin user can create new users
+// Create new user (POST)
 router.post('/create', (req, res) => {
-    const { username, password, role } = req.body;
+  const { username, password, role } = req.body;
+  const hashedPassword = bcrypt.hashSync(password, 10);
 
-    if (!username || !password || !role) {
-        return res.status(400).send('All fields (username, password, role) are required');
+  db.run(
+    `INSERT INTO users (username, password, role) VALUES (?, ?, ?)`,
+    [username, hashedPassword, role],
+    (err) => {
+      if (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+          return res.status(400).send('Username already exists');
+        }
+        return res.status(500).send('Failed to create user');
+      }
+      res.status(201).send('User created successfully');
     }
-
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    
-    db.run(`INSERT INTO users (username, password, role) VALUES (?, ?, ?)`, 
-           [username, hashedPassword, role], (err) => {
-        if (err) {
-            if (err.message.includes('UNIQUE constraint failed')) {
-                return res.status(400).send('Username already exists');
-            }
-            return res.status(500).send(`User creation failed: ${err.message}`);
-        }
-        res.status(201).send('User created successfully');
-    });
+  );
 });
 
-
-// Admin user login to get JWT token
-router.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    db.get(`SELECT * FROM users WHERE username = ?`, [username], (err, user) => {
-        if (err || !user || !bcrypt.compareSync(password, user.password)) {
-            return res.status(400).send('Invalid credentials');
-        }
-        const token = generateAccessToken({ username: user.username, role: user.role });
-        res.json({ token });
-    });
-});
-
-// List all users
+// Fetch all users (GET)
 router.get('/', (req, res) => {
-    db.all(`SELECT id, username, role FROM users`, [], (err, rows) => {
-        if (err) return res.status(400).send(err.message);
-        res.json(rows);
-    });
+  db.all(`SELECT id, username, role FROM users`, [], (err, rows) => {
+    if (err) return res.status(400).send(err.message);
+    res.json(rows);
+  });
 });
 
-// Update or delete user routes could be added similarly
+// Update existing user (PUT)
+router.put('/:id', (req, res) => {
+  const { id } = req.params;
+  const { username, password, role } = req.body;
+  const hashedPassword = bcrypt.hashSync(password, 10);
 
+  db.run(
+    `UPDATE users SET username = ?, password = ?, role = ? WHERE id = ?`,
+    [username, hashedPassword, role, id],
+    function (err) {
+      if (err) return res.status(500).send('Failed to update user');
+      if (this.changes === 0) return res.status(404).send('User not found');
+      res.status(200).send('User updated successfully');
+    }
+  );
+});
 
-// router.post('/init-admin', (req, res) => {
-//     const { username, password, role } = req.body;
-
-//     if (role !== 'admin') {
-//         return res.status(400).send('Role must be admin for this route');
-//     }
-
-//     const hashedPassword = bcrypt.hashSync(password, 10);
-//     db.run(`INSERT INTO users (username, password, role) VALUES (?, ?, ?)`, 
-//            [username, hashedPassword, role], (err) => {
-//         if (err) return res.status(400).send('Admin user initialization failed');
-//         res.status(201).send('Admin user created successfully');
-//     });
-// });
-
+// Delete a user (DELETE)
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  
+  db.run(`DELETE FROM users WHERE id = ?`, [id], function (err) {
+    if (err) return res.status(500).send('Failed to delete user');
+    if (this.changes === 0) return res.status(404).send('User not found');
+    res.status(200).send('User deleted successfully');
+  });
+});
 
 module.exports = router;

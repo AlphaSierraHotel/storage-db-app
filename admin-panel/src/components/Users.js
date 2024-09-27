@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { Modal } from 'bootstrap';
+
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -40,6 +42,11 @@ const Users = () => {
         setNewUser({ username: '', password: '', role: 'user' });
         setToastMessage('User created successfully!');
         setShowToast(true);
+
+      // Close the modal
+      const modalElement = document.getElementById('createUserModal');
+      const modal = Modal.getInstance(modalElement);
+      modal.hide();  // Hide the modal
       } else {
         const errorText = await response.text(); // Get the specific error message
         setToastMessage(`Failed to create user: ${errorText}`);
