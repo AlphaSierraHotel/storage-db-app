@@ -35,7 +35,7 @@ app.get('/', (req, res) => {
 //app.use(authenticateToken);
 
 // Routes
-app.use('/api/users', userRoutes);
+app.use('/users', userRoutes);
 app.use('/api-keys', apiKeyRoutes);
 app.use('/api/hdd', hddRoutes);
 
