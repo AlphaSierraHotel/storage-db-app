@@ -9,10 +9,18 @@ const Users = () => {
   const [newUser, setNewUser] = useState({ username: '', password: '', role: '' });
   const [updateUser, setUpdateUser] = useState(null);
   const [updatePasswordUser, setUpdatePasswordUser] = useState(null);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [newPasswordError, setNewPasswordError] = useState('');
+
+  const [deleteUserId, setDeleteUserId] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [validated, setValidated] = useState(false);
@@ -33,7 +41,7 @@ const Users = () => {
       return () => clearTimeout(timer); // Clean up timeout on unmount
     }
   }, [success, error]);
-  
+
   const fetchUsers = async () => {
     try {
       const response = await axios.get(`${API_URL}/users`);
@@ -59,6 +67,11 @@ const Users = () => {
   };
   const handleClosePasswordModal = () => setShowPasswordModal(false);
 
+  const handleShowDeleteModal = (userId) => {
+    setDeleteUserId(userId);
+    setShowDeleteModal(true);
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setNewUser((prev) => ({ ...prev, [name]: value }));
@@ -70,8 +83,59 @@ const Users = () => {
   };
 
   const handlePasswordChange = (e) => {
-    setPassword(e.target.value);
+    const newPassword = e.target.value;
+    setPassword(newPassword);
+
+    const error = validatePasswordStrength(newPassword);
+    setPasswordError(error);
   };
+
+  const handleNewPasswordChange = (e) => {
+    const password = e.target.value;
+    setNewPassword(password);
+    const error = validatePasswordStrength(password);
+    setNewPasswordError(error);
+  };
+
+  const handleConfirmNewPasswordChange = (e) => {
+    setConfirmNewPassword(e.target.value);
+  };
+
+  const validatePasswordStrength = (password) => {
+    const minLength = 8;
+    const hasNumber = /\d/;
+    const hasSpecialChar = /[!@#$%^&*]/;
+    const hasUpperCase = /[A-Z]/;
+
+    if (password.length < minLength) return "Password must be at least 8 characters.";
+    if (!hasNumber.test(password)) return "Password must contain at least one number.";
+    if (!hasSpecialChar.test(password)) return "Password must contain at least one special character.";
+    if (!hasUpperCase.test(password)) return "Password must contain at least one uppercase letter.";
+
+    return ""; // Empty string means the password is strong
+  };
+
+  // const handleFormSubmit = async (event) => {
+  //   event.preventDefault();
+  //   const form = event.currentTarget;
+  //   if (form.checkValidity() === false) {
+  //     event.stopPropagation();
+  //     setValidated(true);
+  //     return;
+  //   }
+  //   try {
+  //     console.log("Sending data to backend:", newUser); // Log request data
+  //     const response = await axios.post(`${API_URL}/users/create`, newUser);
+  //     console.log("Response from backend:", response.data); // Log backend response
+  //     setSuccess('User created successfully!');
+  //     fetchUsers();
+  //     handleCloseModal();
+  //   } catch (err) {
+  //     setError('Error creating user.');
+  //     console.error("Axios error occurred:", error.response ? error.response.data : error.message);
+  //     console.error(err);
+  //   }
+  // };
 
   const handleFormSubmit = async (event) => {
     event.preventDefault();
@@ -81,13 +145,27 @@ const Users = () => {
       setValidated(true);
       return;
     }
+
+    if (newPassword !== confirmNewPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    if (newPasswordError) {
+      setError(newPasswordError);
+      return;
+    }
+
     try {
-      await axios.post(`${API_URL}/users`, newUser);
+      console.log("Sending data to backend:", newUser); // Log request data
+      const response = await axios.post(`${API_URL}/users/create`, { ...newUser, password: newPassword });
+      console.log("Response from backend:", response.data); // Log backend response
       setSuccess('User created successfully!');
-      fetchUsers();
       handleCloseModal();
+      fetchUsers();
     } catch (err) {
       setError('Error creating user.');
+      console.error("Axios error occurred:", error.response ? error.response.data : error.message);
       console.error(err);
     }
   };
@@ -116,16 +194,52 @@ const Users = () => {
 
   const handlePasswordSubmit = async (event) => {
     event.preventDefault();
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     try {
       await axios.put(`${API_URL}/users/${updatePasswordUser.id}/password`, { password });
       setSuccess('Password updated successfully!');
       setPassword('');
+      setConfirmPassword('');
       handleClosePasswordModal();
     } catch (err) {
       setError('Error updating password.');
       console.error(err);
     }
   };
+
+  const handleConfirmDelete = async () => {
+    if (deleteUserId) {
+      try {
+        await axios.delete(`${API_URL}/users/${deleteUserId}`);
+        setSuccess('User deleted successfully!');
+        setUsers(users.filter((user) => user.id !== deleteUserId));
+      } catch (err) {
+        setError('Error deleting user.');
+        console.error(err);
+      }
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setDeleteUserId(null);
+  };
+
+  // const handleDeleteUser = async (userId) => {
+  //   try {
+  //     await axios.delete(`${API_URL}/users/${userId}`);
+  //     setSuccess('User deleted successfully!');
+  //     setUsers(users.filter((user) => user.id !== userId)); // Remove the user from the state
+  //   } catch (err) {
+  //     setError('Error deleting user.');
+  //     console.error(err);
+  //   }
+  // };
 
   return (
     <div>
@@ -159,12 +273,25 @@ const Users = () => {
               <Form.Label>Password</Form.Label>
               <Form.Control
                 type="password"
-                name="password"
-                onChange={handleInputChange}
+                value={newPassword}
+                onChange={handleNewPasswordChange}
                 required
               />
               <Form.Control.Feedback type="invalid">
                 Please provide a password.
+              </Form.Control.Feedback>
+            </Form.Group>
+
+            <Form.Group>
+              <Form.Label>Confirm Password</Form.Label>
+              <Form.Control
+                type="password"
+                value={confirmNewPassword}
+                onChange={handleConfirmNewPasswordChange}
+                required
+              />
+              <Form.Control.Feedback type="invalid">
+                Please confirm your password.
               </Form.Control.Feedback>
             </Form.Group>
 
@@ -185,9 +312,48 @@ const Users = () => {
               </Form.Control.Feedback>
             </Form.Group>
 
-            <Button type="submit" variant="success">Submit</Button>
+            {newPasswordError && <Alert variant="danger">{newPasswordError}</Alert>}
+
+            {newPassword && confirmNewPassword && newPassword === confirmNewPassword && (
+              <Alert variant="success">Passwords match!</Alert>
+            )}
+
+            {newPassword && confirmNewPassword && newPassword !== confirmNewPassword && (
+              <Alert variant="danger">Passwords do not match!</Alert>
+            )}
+
+            <Button
+              type="submit"
+              variant="success"
+              disabled={
+                !newPassword ||
+                !confirmNewPassword ||
+                newPassword !== confirmNewPassword ||
+                newPasswordError !== "" ||
+                !newUser.role
+              }
+            >
+              Submit
+            </Button>
           </Form>
         </Modal.Body>
+      </Modal>
+
+      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal}>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Delete</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to delete this user?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseDeleteModal}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleConfirmDelete}>
+            Delete
+          </Button>
+        </Modal.Footer>
       </Modal>
 
       {updateUser && (
@@ -253,7 +419,42 @@ const Users = () => {
                   Please provide a password.
                 </Form.Control.Feedback>
               </Form.Group>
-              <Button type="submit" variant="primary">Update Password</Button>
+
+              <Form.Group>
+                <Form.Label>Confirm New Password</Form.Label>
+                <Form.Control
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  Please confirm your password.
+                </Form.Control.Feedback>
+              </Form.Group>
+
+              {password && confirmPassword && password === confirmPassword && (
+                <Alert variant="success">Passwords match!</Alert>
+              )}
+
+              {password && confirmPassword && password !== confirmPassword && (
+                <Alert variant="danger">Passwords do not match!</Alert>
+              )}
+
+              {passwordError && <Alert variant="danger">{passwordError}</Alert>}
+
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={
+                  !password ||
+                  !confirmPassword ||
+                  password !== confirmPassword ||
+                  passwordError !== ""
+                }
+              >
+                Update Password
+              </Button>
             </Form>
           </Modal.Body>
         </Modal>
@@ -289,7 +490,12 @@ const Users = () => {
                 >
                   Change Password
                 </Button>
-                <Button variant="danger">Delete</Button>
+                <Button
+                  variant="danger"
+                  onClick={() => handleShowDeleteModal(user.id)}
+                >
+                  Delete
+                </Button>
               </td>
             </tr>
           ))}

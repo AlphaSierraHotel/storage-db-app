@@ -7,6 +7,44 @@
   pointer-events: none;
 }
 
+.sidebar {
+  width: 200px;
+  height: 100vh;
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  position: fixed;
+}
+
+.sidebar h2 {
+  font-size: 20px;
+  margin-bottom: 20px;
+}
+
+.sidebar ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.sidebar ul li {
+  margin: 10px 0;
+}
+
+.sidebar ul li a {
+  color: white;
+  text-decoration: none;
+}
+
+.sidebar ul li a:hover {
+  text-decoration: underline;
+}
+
+.content {
+  margin-left: 250px;
+  margin-right: 50px;
+  padding: 20px;
+}
+
 .toast-notification {
   position: fixed;
   top: 20px;
@@ -40,7 +78,13 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
+}
+
+td button.btn {
+  margin: 0px 5px;
+  padding: 4px 12px;
 }
