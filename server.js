@@ -9,25 +9,22 @@ const { authenticateToken } = require('./auth');
 const userRoutes = require('./routes/userRoutes');
 const hddRoutes = require('./routes/hddRoutes');
 const apiKeyRoutes = require('./routes/apiKeyRoutes');
-const logEvents = require('./logEvents')
+const { logger } = require('./middleware/logEvents')
+const errorHandler = require('./middleware/errorHandler')
+errorHandler
 
-const EventEmitter = require('events')
-class MyEmitter extends EventEmitter { }
-
-// Initialize object
-const myEmitter = new MyEmitter()
-
-// add listener for the log event
-myEmitter.on('log', (msg) => logEvents(msg))
+// const EventEmitter = require('events')
+// class Emitter extends EventEmitter { }
+// const myEmitter = new Emitter()
+// myEmitter.on('log', (msg) => logEvents(msg))
 
 const app = express();
 
 // Middleware
+app.use(logger);
+
 app.use(bodyParser.json());
 app.use(cors());
-
-const testhash = bcrypt.hashSync('password123', 10)
-console.log(testhash)
 
 const PORT = process.env.PORT;
 const SECRET_KEY = process.env.JWT_SECRET || '$2a$10$dksBDZ/twDxLyUsjmG1ELOoeOZMWwLAD.5z1Dp4ioiSnmXMbuzWKm';
@@ -117,14 +114,22 @@ app.use('/users', userRoutes);
 app.use('/api-keys', apiKeyRoutes);
 app.use('/hdd', hddRoutes);
 
+app.all('*', (req, res) => {
+    res.status(404)
+    if (req.accepts('html')) {
+        res.sendFile(path.join(__dirname, 'static', '404.html'))
+    } else if (req.accepts('json')) {
+        res.json({ error: "404 - Not Found" })
+    } else {
+        res.type('txt').send("404 - Not Found")
+    }
+})
 
+app.use(errorHandler)
 
 // Start server
 const port = process.env.PORT || 6288;
 app.listen(port, () => {
-    // setTimeout(() => {
-    //     // Emit event
-    myEmitter.emit('log', `Server running on port ${port}`)
-    // }, 2000)    
+    // myEmitter.emit('log', `Server running on port ${port}`)
     console.log(`Server running on port ${port}`);
 });
